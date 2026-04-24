@@ -13,11 +13,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit();
     }
 
-    $student_id = intval($_POST['student_id']);
+    $student_id = $conn->real_escape_string(trim($_POST['student_id']));
+
+    $get_image_sql = "SELECT profile_image FROM academic_records WHERE student_id = '$student_id'";
+    $image_result = $conn->query($get_image_sql);
+    
+    if ($image_result->num_rows > 0) {
+        $row = $image_result->fetch_assoc();
+        if (!empty($row['profile_image']) && file_exists($row['profile_image'])) {
+            unlink($row['profile_image']); 
+        }
+    }
 
     // Lab Manual Requirement: Use DELETE with a WHERE clause
     // 'ON DELETE CASCADE' in setup.php ensures linked academic records are also removed.
-    $sql = "DELETE FROM students WHERE student_id = $student_id";
+    $sql = "DELETE FROM students WHERE student_id = '$student_id'";
 
     if ($conn->query($sql) === TRUE) {
         if ($conn->affected_rows > 0) {

@@ -3,27 +3,28 @@ $servername = "localhost";
 $username = "root";
 $password = "";
 
-// Create connection without a specific database first
 $conn = new mysqli($servername, $username, $password);
 
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-// Step 1. Create database
-$sql = "CREATE DATABASE IF NOT EXISTS soresu_db";
+// 1. Force drop the old integer-based database
+$conn->query("DROP DATABASE IF EXISTS soresu_db");
+
+// 2. Create a fresh database
+$sql = "CREATE DATABASE soresu_db";
 if ($conn->query($sql) === TRUE) {
     echo "Database created successfully.<br>";
 } else {
     echo "Error creating database: " . $conn->error . "<br>";
 }
 
-// Selecting database
 $conn->select_db("soresu_db");
 
-// Step 2. Create Table 1: students (Personal Info)
-$sql_table1 = "CREATE TABLE IF NOT EXISTS students (
-    student_id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+// 3. Create Table 1 with the correct VARCHAR rule
+$sql_table1 = "CREATE TABLE students (
+    student_id VARCHAR(20) PRIMARY KEY,
     name VARCHAR(40) NOT NULL,
     age INT(2) NOT NULL,
     email VARCHAR(40) NOT NULL
@@ -35,15 +36,14 @@ if ($conn->query($sql_table1) === TRUE) {
     echo "Error creating table: " . $conn->error . "<br>";
 }
 
-// Step 3. Create Table 2: academic_records (Academic Info & File Path)
-// Linked to Table 1 via 'student_id'
-$sql_table2 = "CREATE TABLE IF NOT EXISTS academic_records (
+// 4. Create Table 2 with the correct VARCHAR rule
+$sql_table2 = "CREATE TABLE academic_records (
     record_id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    student_id INT(6) UNSIGNED,
+    student_id VARCHAR(20),
     course VARCHAR(40) NOT NULL,
     year_level INT(1) NOT NULL,
-    graduation_status BOOLEAN NOT NULL,
-    profile_image VARCHAR(255) NOT NULL,
+    graduation_status TINYINT(1) DEFAULT 0,
+    profile_image VARCHAR(255),
     FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE
 )";
 
