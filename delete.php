@@ -1,36 +1,37 @@
 <?php
 /**
- * delete.php
- * Handles the deletion of a student record.
+ * delete.php - Revised for Sprint 3
+ * Permanently removes a student record using the required WHERE clause.
  */
 include 'db_connect.php';
 
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['student_id'])) {
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    
+    // Validation: If student_id is empty, alert and stop
+    if (!isset($_POST['student_id']) || empty(trim($_POST['student_id']))) {
+        echo "<script>alert('Error: No Student ID provided. Please search for a record first.'); window.location.href='index.php';</script>";
+        exit();
+    }
+
     $student_id = intval($_POST['student_id']);
 
-    // Because of 'ON DELETE CASCADE' in setup.php, 
-    // deleting from 'students' will automatically delete from 'academic_records'.
+    // Lab Manual Requirement: Use DELETE with a WHERE clause
+    // 'ON DELETE CASCADE' in setup.php ensures linked academic records are also removed.
     $sql = "DELETE FROM students WHERE student_id = $student_id";
 
     if ($conn->query($sql) === TRUE) {
         if ($conn->affected_rows > 0) {
-            echo "<script>
-                    alert('Record (ID: $student_id) has been permanently deleted.');
-                    window.location.href = 'index.php';
-                  </script>";
+            echo "<script>alert('Student ID $student_id has been successfully deleted.'); window.location.href='index.php';</script>";
         } else {
-            echo "<script>
-                    alert('No record found with ID: $student_id');
-                    window.location.href = 'index.php';
-                  </script>";
+            echo "<script>alert('Error: No record found with ID $student_id.'); window.location.href='index.php';</script>";
         }
     } else {
-        echo "Error deleting record: " . $conn->error;
+        echo "Database Error: " . $conn->error;
     }
 
     $conn->close();
 } else {
-    // Redirect if accessed directly without POST
+    // If someone accesses this file directly via URL without POSTing an ID
     header("Location: index.php");
     exit();
 }

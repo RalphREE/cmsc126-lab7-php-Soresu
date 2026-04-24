@@ -1,61 +1,76 @@
 <?php
 /**
- * update.php
- * Handles fetching a record for editing and processing the update.
+ * update.php - Revised for Sprint 3
+ * Handles fetching a record and processing the update with validation.
  */
 include 'db_connect.php';
 
-// STAGE 2: PROCESS THE UPDATE (POST)
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['student_id'])) {
+// --- STAGE 2: PROCESS THE UPDATE (POST) ---
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_action'])) {
+    
+    // Check if Student ID is missing or empty
+    if (!isset($_POST['student_id']) || empty(trim($_POST['student_id']))) {
+        echo "<script>alert('Error: No record selected for update.'); window.location.href='index.php';</script>";
+        exit();
+    }
+
     $student_id = intval($_POST['student_id']);
-    $name = $_POST['name'];
-    $age = intval($_POST['age']);
-    $email = $_POST['email'];
-    $course = $_POST['course'];
+    $name = trim($_POST['name']);
+    $age = trim($_POST['age']);
+    $email = trim($_POST['email']);
+    $course = trim($_POST['course']);
     $year_level = intval($_POST['year_level']);
     $graduation_status = isset($_POST['graduation_status']) ? 1 : 0;
 
-    // Handle Image Update (Optional)
-    $profile_image_sql = "";
+    // Validation: Alert and do nothing if required fields are empty
+    if (empty($name) || empty($age) || empty($email) || empty($course)) {
+        echo "<script>alert('Update failed: All fields marked * are required.'); window.history.back();</script>";
+        exit();
+    }
+
+    // Handle Optional Image Update
+    $image_update_sql = "";
     if (!empty($_FILES["profile_image"]["name"])) {
         $target_dir = "uploads/";
-        $filename = basename($_FILES["profile_image"]["name"]);
-        $target_file = $target_dir . time() . "_" . $filename;
+        $filename = time() . "_" . basename($_FILES["profile_image"]["name"]);
+        $target_file = $target_dir . $filename;
         
-        // Basic validation: Check file size (e.g., 2MB) and type
+        // Lab Requirement: File type validation
         $imageFileType = strtolower(pathinfo($target_file, PATHINFO_EXTENSION));
-        $allowed_types = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
 
-        if (in_array($imageFileType, $allowed_types) && $_FILES["profile_image"]["size"] < 2000000) {
+        if (in_array($imageFileType, $allowed) && $_FILES["profile_image"]["size"] < 2000000) {
             if (move_uploaded_file($_FILES["profile_image"]["tmp_name"], $target_file)) {
-                $profile_image_sql = ", profile_image = '$target_file'";
+                $image_update_sql = ", profile_image = '$target_file'";
             }
         }
     }
 
-    // Update students table
+    // Update students table (Personal Info)
     $sql1 = "UPDATE students SET name = '$name', age = '$age', email = '$email' WHERE student_id = $student_id";
     
-    // Update academic_records table
+    // Update academic_records table (Academic Info)
     $sql2 = "UPDATE academic_records SET 
                 course = '$course', 
                 year_level = '$year_level', 
                 graduation_status = '$graduation_status' 
-                $profile_image_sql 
+                $image_update_sql 
              WHERE student_id = $student_id";
 
     if ($conn->query($sql1) === TRUE && $conn->query($sql2) === TRUE) {
         echo "<script>alert('Record updated successfully!'); window.location.href = 'index.php?student_id=$student_id';</script>";
     } else {
-        echo "Error updating record: " . $conn->error;
+        echo "Error: " . $conn->error;
     }
+    $conn->close();
+    exit();
 }
 
-// STAGE 1: DISPLAY THE EDIT FORM (GET)
+// --- STAGE 1: FETCH DATA FOR THE FORM (GET) ---
 $row = null;
 if (isset($_GET['student_id'])) {
     $student_id = intval($_GET['student_id']);
-    $sql = "SELECT s.*, a.* FROM students s INNER JOIN academic_records a ON s.student_id = a.student_id WHERE s.student_id = $student_id LIMIT 1";
+    $sql = "SELECT s.*, a.* FROM students s JOIN academic_records a ON s.student_id = a.student_id WHERE s.student_id = $student_id";
     $result = $conn->query($sql);
     if ($result->num_rows > 0) {
         $row = $result->fetch_assoc();
@@ -66,75 +81,54 @@ if (isset($_GET['student_id'])) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8"><title>Update Student — UPV</title>
+    <meta charset="UTF-8">
+    <title>Update Student Record</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <main class="main-content">
         <section class="card">
-            <div class="card-header">
-                <h1>Edit Student Record</h1>
-                <p>Modify the details for Student ID: <?= htmlspecialchars($student_id ?? '') ?></p>
-            </div>
-            
             <?php if ($row): ?>
+            <div class="card-header">
+                <h1>Update Record: <?= htmlspecialchars($row['name']) ?></h1>
+            </div>
             <form action="update.php" method="POST" enctype="multipart/form-data" class="reg-form">
                 <input type="hidden" name="student_id" value="<?= $row['student_id'] ?>">
                 
-                <fieldset>
-                    <legend>Personal Information</legend>
-                    <div class="form-row two-col">
-                        <div class="form-group">
-                            <label for="name">Name <span class="req">*</span></label>
-                            <input type="text" name="name" value="<?= htmlspecialchars($row['name']) ?>" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="age">Age <span class="req">*</span></label>
-                            <input type="number" name="age" min="0" max="99" value="<?= htmlspecialchars($row['age']) ?>" required>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="email">Email <span class="req">*</span></label>
-                        <input type="email" name="email" value="<?= htmlspecialchars($row['email']) ?>" required>
-                    </div>
-                </fieldset>
+                <label>Name *</label>
+                <input type="text" name="name" value="<?= htmlspecialchars($row['name']) ?>" required>
+                
+                <label>Age *</label>
+                <input type="number" name="age" value="<?= htmlspecialchars($row['age']) ?>" required>
+                
+                <label>Email *</label>
+                <input type="email" name="email" value="<?= htmlspecialchars($row['email']) ?>" required>
 
-                <fieldset>
-                    <legend>Academic Information</legend>
-                    <div class="form-row two-col">
-                        <div class="form-group">
-                            <label for="course">Course <span class="req">*</span></label>
-                            <input type="text" name="course" value="<?= htmlspecialchars($row['course']) ?>" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="year_level">Year Level <span class="req">*</span></label>
-                            <select name="year_level" required>
-                                <?php for($i=1; $i<=4; $i++): ?>
-                                    <option value="<?= $i ?>" <?= $row['year_level'] == $i ? 'selected' : '' ?>><?= $i ?>th Year</option>
-                                <?php endfor; ?>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group checkbox-group">
-                        <label class="checkbox-wrap">
-                            <input type="checkbox" name="graduation_status" value="1" <?= $row['graduation_status'] ? 'checked' : '' ?>> Yes, Graduating
-                        </label>
-                    </div>
-                </fieldset>
+                <label>Course *</label>
+                <input type="text" name="course" value="<?= htmlspecialchars($row['course']) ?>" required>
 
-                <fieldset>
-                    <legend>Profile Photo (Optional Update)</legend>
-                    <input type="file" name="profile_image" accept="image/*">
-                    <p class="hint">Leave empty to keep existing image.</p>
-                </fieldset>
+                <label>Year Level *</label>
+                <select name="year_level" required>
+                    <option value="1" <?= $row['year_level'] == 1 ? 'selected' : '' ?>>1st Year</option>
+                    <option value="2" <?= $row['year_level'] == 2 ? 'selected' : '' ?>>2nd Year</option>
+                    <option value="3" <?= $row['year_level'] == 3 ? 'selected' : '' ?>>3rd Year</option>
+                    <option value="4" <?= $row['year_level'] == 4 ? 'selected' : '' ?>>4th Year</option>
+                </select>
 
-                <div style="display:flex; gap:10px;">
-                    <button type="submit" class="btn btn-warning btn-full">Update Record</button>
-                    <a href="index.php" class="btn btn-secondary btn-full" style="text-align:center; padding-top:13px;">Cancel</a>
+                <label>
+                    <input type="checkbox" name="graduation_status" value="1" <?= $row['graduation_status'] ? 'checked' : '' ?>> Yes, Graduating
+                </label>
+
+                <label>Change Profile Image (Optional)</label>
+                <input type="file" name="profile_image" accept="image/*">
+
+                <div style="margin-top:20px; display:flex; gap:10px;">
+                    <button type="submit" name="update_action" class="btn btn-warning">Update Record</button>
+                    <a href="index.php" class="btn btn-secondary">Cancel</a>
                 </div>
             </form>
             <?php else: ?>
-                <div class="alert alert-error">Record not found. <a href="index.php">Return home</a></div>
+                <div class="alert alert-error">No student selected. <a href="index.php">Go back</a></div>
             <?php endif; ?>
         </section>
     </main>
